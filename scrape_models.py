@@ -7,7 +7,7 @@ Runs daily via GitHub Actions, outputs to GitHub Pages.
 import re
 import json
 import requests
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from urllib.parse import urljoin
 from pathlib import Path
 
@@ -312,7 +312,7 @@ def main():
 
 def generate_html(models: list[dict], output_path: Path, free_count: int, paid_count: int):
     """Generate the comparison table HTML."""
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    now = datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M 台灣時間")
     
     # Separate free and paid
     free_models = [m for m in models if m["is_free"]]
@@ -436,7 +436,7 @@ def generate_html(models: list[dict], output_path: Path, free_count: int, paid_c
     <div class="container">
         <h1>☁️ Cloudflare Workers AI 模型比較表</h1>
         <p class="meta">資料來源: <a href="https://developers.cloudflare.com/workers-ai/models/" target="_blank">Cloudflare Workers AI Models</a> · <a href="https://developers.cloudflare.com/workers-ai/platform/pricing/" target="_blank">Pricing</a> · <a href="https://developers.cloudflare.com/workers-ai/platform/limits/" target="_blank">Limits</a><br>
-        更新時間: {now} · 每日 05:00 UTC 自動更新 (GitHub Actions)</p>
+        更新時間: {now} · 每日 05:00 台灣時間自動更新 (GitHub Actions)</p>
         
         <div class="stats">
             <div class="stat-card free">
