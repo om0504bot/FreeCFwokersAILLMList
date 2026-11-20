@@ -4,7 +4,7 @@
 
 ## 🔗 線上網頁
 
-**https://\<your-username\>.github.io/cf-workers-ai-free-models/**
+**https://om0504bot.github.io/FreeCFwokersAILLMList/**
 
 (將 `<your-username>` 替換為你的 GitHub 用戶名)
 
