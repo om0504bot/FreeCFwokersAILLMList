@@ -10,6 +10,7 @@ import requests
 from datetime import datetime, timezone, timedelta
 from urllib.parse import urljoin
 from pathlib import Path
+from typing import Optional
 
 # --- Constants ---
 LLMS_TXT_URL = "https://developers.cloudflare.com/workers-ai/llms.txt"
@@ -184,8 +185,23 @@ def fetch_rate_limits() -> dict[str, dict]:
     return {"task_defaults": task_limits, "paid_limits": paid_limits, "model_specific": limits}
 
 
-def check_deprecated(models: list[dict]) -> dict[str, str]:
-    """Check individual model pages for deprecation notices."""
+def parse_deprecation_date(text: str) -> Optional[str]:
+    """Extract ISO date (YYYY-MM-DD) from deprecation text if present."""
+    # Match YYYY-MM-DD or YYYY/MM/DD
+    m = re.search(r'(\d{4})[-/](\d{2})[-/](\d{2})', text)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+    # Match "Deprecated: YYYY-MM-DD" or "Retired: YYYY-MM-DD"
+    m = re.search(r'(?:Deprecated|Retired|Sunset|End of life|EOL)[:\s]+(\d{4}[-/]\d{2}[-/]\d{2})', text, re.IGNORECASE)
+    if m:
+        return m.group(1).replace('/', '-')
+    return None
+
+
+def check_deprecated(models: list[dict]) -> dict[str, dict]:
+    """Check individual model pages for deprecation notices.
+    Returns dict: model_id -> {"text": str, "date": str|None}
+    """
     deprecated = {}
     # Known deprecated/preview models from documentation patterns
     known_deprecated = {
@@ -197,12 +213,15 @@ def check_deprecated(models: list[dict]) -> dict[str, str]:
         "@cf/daily-co/phonellm-mini-alpha-2": "Alpha 版本",
         "@cf/deepseek-ai/deepseek-v4-flash-0731": "已由 v4.1 取代",
     }
-    
+
     for model in models:
         model_id = model["id"]
         if model_id in known_deprecated:
-            deprecated[model_id] = known_deprecated[model_id]
-    
+            text = known_deprecated[model_id]
+            deprecated[model_id] = {
+                "text": text,
+                "date": parse_deprecation_date(text)
+            }
     return deprecated
 
 
@@ -268,6 +287,7 @@ def main():
             avg_neurons_per_req = (price_info.get("input_neurons_per_m", 0) + price_info.get("output_neurons_per_m", 0)) / 1000
         est_free_requests = int(free_neurons_day / avg_neurons_per_req) if avg_neurons_per_req > 0 else "N/A"
 
+        dep_info = deprecated.get(model_id, {})
         enriched.append({
             "id": model_id,
             "display_name": model["display_name"],
@@ -278,7 +298,8 @@ def main():
             "task_type": task_type,
             "task_type_zh": task_type_zh,
             "tool_calling": "✅ 支援" if tool_calling else "❌ 不支援",
-            "deprecated": deprecated.get(model_id, ""),
+            "deprecated": dep_info.get("text", "") if isinstance(dep_info, dict) else dep_info,
+            "deprecation_date": dep_info.get("date") if isinstance(dep_info, dict) else None,
             "pricing": price_info,
             "rpm": rpm,
             "rpm_note": rpm_note,
@@ -324,7 +345,12 @@ def generate_html(models: list[dict], output_path: Path, free_count: int, paid_c
             price = m["pricing"]
             deprecated_badge = ""
             if m["deprecated"]:
-                deprecated_badge = f'<span class="badge deprecated" title="{m["deprecated"]}">⚠ {m["deprecated"]}</span>'
+                dep_text = m["deprecated"]
+                dep_date = m.get("deprecation_date")
+                title = dep_text
+                if dep_date:
+                    title += f" (棄用日期: {dep_date})"
+                deprecated_badge = f'<span class="badge deprecated" title="{title}">⚠ {dep_text}</span>'
             
             # Pricing display
             if price:
