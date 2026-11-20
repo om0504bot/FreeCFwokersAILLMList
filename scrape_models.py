@@ -238,10 +238,14 @@ def main():
         
         task_type = infer_task_type(model_id, model["display_name"])
         task_type_zh = TASK_TYPE_MAP.get(task_type, task_type)
-        
+
+        # Add tool calling support field (True for text-generation models that support function calling)
+        # Text-generation models typically support tool calling; others may not
+        tool_calling = task_type == "text-generation"
+
         # Get pricing info
         price_info = pricing.get(model_id, {})
-        
+
         # Get rate limit
         model_limits = limits["model_specific"].get(model_id, {})
         if model_limits:
@@ -249,21 +253,21 @@ def main():
             rpm_note = model_limits.get("note", "")
         elif is_paid:
             rpm = limits["paid_limits"]["standard"]
-            rpm_note = "付費模型標準限制" 
+            rpm_note = "付費模型標準限制"
         else:
             rpm = limits["task_defaults"].get(task_type, 0)
             rpm_note = ""
-        
+
         # Free tier neurons per day
         free_neurons_day = 10000
-        
+
         # Estimate free requests per day based on typical usage
         # Assume average 1K input + 1K output tokens per request
         avg_neurons_per_req = 0
         if price_info:
             avg_neurons_per_req = (price_info.get("input_neurons_per_m", 0) + price_info.get("output_neurons_per_m", 0)) / 1000
         est_free_requests = int(free_neurons_day / avg_neurons_per_req) if avg_neurons_per_req > 0 else "N/A"
-        
+
         enriched.append({
             "id": model_id,
             "display_name": model["display_name"],
@@ -273,6 +277,7 @@ def main():
             "country": infer_country(model_id),
             "task_type": task_type,
             "task_type_zh": task_type_zh,
+            "tool_calling": "✅ 支援" if tool_calling else "❌ 不支援",
             "deprecated": deprecated.get(model_id, ""),
             "pricing": price_info,
             "rpm": rpm,
@@ -344,6 +349,7 @@ def generate_html(models: list[dict], output_path: Path, free_count: int, paid_c
                 <td>{price_str}</td>
                 <td>{neuron_str}</td>
                 <td>{free_est}</td>
+                <td>{m['tool_calling']}</td>
                 <td>{m['rpm']:,} req/min {m['rpm_note']}</td>
                 <td>{deprecated_badge}</td>
             </tr>""")
@@ -360,6 +366,7 @@ def generate_html(models: list[dict], output_path: Path, free_count: int, paid_c
                     <th>Token 價格</th>
                     <th>Neurons 價格</th>
                     <th>免費額度估算</th>
+                    <th>工具支援</th>
                     <th>速率限制</th>
                     <th>狀態</th>
                 </tr>
