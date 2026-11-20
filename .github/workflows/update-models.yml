@@ -7,17 +7,13 @@ on:
   workflow_dispatch:  # Allow manual trigger
 
 permissions:
-  contents: write  # Needed to push to gh-pages
-  pages: write
-  id-token: write
+  contents: write
 
 jobs:
   scrape-and-deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pages: write
-      id-token: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -55,17 +51,6 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs
-          force_orphan: true
-          user_name: "github-actions[bot]"
-          user_email: "41898282+github-actions[bot]@users.noreply.github.com"
-          commit_message: "chore: update Cloudflare Workers AI models comparison ($(date +'%Y-%m-%d'))"
 
       - name: Upload artifact (backup)
         uses: actions/upload-artifact@v4
